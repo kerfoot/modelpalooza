@@ -105,10 +105,10 @@ variables:
 		:format_version = "rtofsGliderFlatNc" ;
         :history = " " ;
 		:id = " " ;
-		:institution = "NOAA, NCEP, RUCOOL" ;
+		:institution = "NCEP" ;
 		:keywords = "Models, Government Agencies-U.S. Federal Agencies > DOC/NOAA/NWS/NCEP, National Centers for Environmental Prediction, National Weather Service, http://www.ncep.noaa.gov/, Oceans > Ocean Pressure > Water Pressure, Oceans > Ocean Temperature > Water Temperature, Oceans > Salinity/Density > Conductivity, Oceans > Salinity/Density > Density, Oceans > Salinity/Density > Salinity" ;
 		:keywords_vocabulary = "GCMD Science Keywords" ;
-		:license = "Rutgers University and NCEP assume no liability resulting from the use of these data. No data quality assurance steps have been implemented on this data to date.  These files are to be used for comparison with measured Slocum glider vertical profiles.  This dataset is represents a 'virtual' glider dataset sampled from RTOFS at each glider profile location and should not be used for scientific analysis." ;
+		:license = "Rutgers University and NCEP assume no liability resulting from the use of these data. No data quality assurance steps have been implemented on this data to date.  These files are to be used for comparison with measured Slocum glider vertical profiles.  This dataset is represents a 'virtual' glider dataset sampled from RTOFS at each glider profile location." ;
 		:metadata_link = " " ;
 		:naming_authority = "edu.rutgers.marine" ;
 		:platform_type = "Model" ;
