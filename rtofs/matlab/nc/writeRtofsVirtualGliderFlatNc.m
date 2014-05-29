@@ -13,11 +13,11 @@ function outFile = writeRtofsVirtualGliderFlatNc(pStruct, varargin)
 %   attributes to values.  If not specified, default values are taken from 
 %   the NetCDF template file and written.
 % 'outfile', STRING: the NetCDF filename is constructed from the .meta
-% field.  Use this option to specify a custom filename.
+%   field.  Use this option to specify a custom filename.
 % 'outdirectory', STRING: NetCDF files are written to the current working
-% directory.  Use this option to specify an alternate path.
+%   directory.  Use this option to specify an alternate path.
 %
-% See also writeRtofsVirtualGliderFlatNc
+% See also DbdGroup2LocalRtofsProfiles
 %
 % ============================================================================
 % $RCSfile$
