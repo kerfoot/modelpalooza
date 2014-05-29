@@ -1,10 +1,10 @@
-function rtofsProfiles = DbdGroup2LocalRtofsProfiles(dgroup, rtofsRoot, trajectoryTs, varargin)
+function rtofsProfiles = sampleLocalRtofs2Glider(pStruct, rtofsRoot, trajectoryTs, varargin)
 %
-% rtofsProfiles = DbdGroup2LocalRtofsProfiles(dgroup, rtofsRoot, trajectoryTs[, varargin])
+% rtofsProfiles = sampleLocalRtofs2Glider(pStruct, rtofsRoot, trajectoryTs[, varargin])
 %
-% Searches rtofsRoot for RTOFS forecasts and finds the closest RTOFS
-% modeled profile to each profile contained in dgroup, which must be an
-% instance of the DbdGroup class.
+% Searches rtofsRoot for RTOFS forecasts and finds the closest RTOFS modeled 
+% profile to each profile contained in pStruct, which is a structured array 
+% returned by the DbdGroup.toProfiles() method.
 %
 % The return value, rtofsProfiles, is a structured array containing the
 % profile data from the closest profile in the forecast, both in time and
@@ -33,9 +33,9 @@ if nargin < 2
         '%s:nargin: 2 arguments are required\n',...
         app);
     return;
-elseif ~isa(dgroup, 'DbdGroup')
+elseif ~isstruct(pStruct) || isempty(pStruct)
     fprintf(2,...
-        '%s:invalidArgument: dgroup must be an instance of the DbdGroup class\n',...
+        '%s:invalidArgument: pStruct must be a structured array created by the DbdGroup.toProfiles method\n',...
         app);
     return;
 elseif isempty(rtofsRoot) || ~ischar(rtofsRoot) || ~isdir(rtofsRoot)
@@ -64,10 +64,12 @@ RTOFS_FTYPES = struct('temp', 'temperature',...
     'uvel', 'u',...
     'vvel', 'v');
 rtofsVars = fieldnames(RTOFS_FTYPES);
-
+% % % % % SENSOR_MAP = struct('temp', 'drv_sea_water_temperature',...
+% % % % %     'salt', 'drv_sea_water_salinity');
+% % % % % gliderVars = fieldnames(SENSOR_MAP);
 % Defaults
 VALID_METHODS = {'nearest',...
-    'interp3d',...
+    'linear3d',...
     }';
 METHOD = VALID_METHODS{1};
 % Process options
@@ -101,9 +103,6 @@ for x = 1:2:length(varargin)
     end
 end
 
-% Export the DbdGroup as profiles
-p = dgroup.toProfiles();
-
 % Create the profile data strcuture that will be used to write data to the
 % NetCDF file
 VAR_STRUCT = struct('ncVarName', '',...
@@ -112,20 +111,20 @@ META_STRUCT = struct('glider', '',...
     'startDatenum', NaN,...
     'endDatenum', NaN,...
     'lonLat', []);
-rtofsProfiles(length(p)).profile_id = NaN;
-rtofsProfiles(length(p)).meta = META_STRUCT;
-rtofsProfiles(length(p)).vars = VAR_STRUCT;
+rtofsProfiles(length(pStruct)).profile_id = NaN;
+rtofsProfiles(length(pStruct)).meta = META_STRUCT;
+rtofsProfiles(length(pStruct)).vars = VAR_STRUCT;
 
-for x = 1:length(p)
+for x = 1:length(pStruct)
     
     rtofsProfiles(x).profile_id = NaN;
     
     % Next profile if no GPS
-    if any(isnan(p(x).meta.lonLat))
+    if any(isnan(pStruct(x).meta.lonLat))
         continue;
     end
     
-    ts = datestr(p(x).meta.startDatenum, 'yyyymmdd');
+    ts = datestr(pStruct(x).meta.startDatenum, 'yyyymmdd');
     
     % Create the RTOFS subset directory corresponding to the target 
     % timestamp
@@ -139,7 +138,7 @@ for x = 1:length(p)
     if ~isequal(length(rtofsFiles),4)
         fprintf(2,...
             'Latest forecast not available.\n');
-        ts = datestr(p(x).meta.startDatenum - 1, 'yyyymmdd');
+        ts = datestr(pStruct(x).meta.startDatenum - 1, 'yyyymmdd');
         % Create the RTOFS subset directory corresponding to the target 
         % timestamp
         RTOFS_FORECAST_DIR = fullfile(rtofsRoot, ts, ts);
@@ -202,21 +201,34 @@ for x = 1:length(p)
         % Grab the RTOFS bounding profiles for the specified gps
         rtofsP = findRtofsBoundingProfiles(rtofsNc,...
             RTOFS_FTYPES.(rtofsVars{f}),...
-            p(x).meta.lonLat(2),...
-            p(x).meta.lonLat(1),...
-            'dtimes', p(x).meta.startDatenum);
+            pStruct(x).meta.lonLat(2),...
+            pStruct(x).meta.lonLat(1),...
+            'dtimes', pStruct(x).meta.startDatenum);
 
         if isempty(rtofsP)
             continue;
+        end
+        
+        switch METHOD
+            case 'linear3d'
+                
+                gData = [pStruct(x).drv_longitude,...
+                    pStruct(x).drv_latitude,...
+                    pStruct(x).depth];
+                % Sample and interpolate RTOFS to the glider profile position
+                rtofsP.Profiles(5).Data = interpRtofs2GliderProfile(rtofsP,...
+                    gData);
+                rtofsP.Profiles(5).LonLat = gData(1,[1 2]);
+
         end
         
         numRows = size(rtofsP.Profiles(5).Data,1);
         
         % Fill in the retreived profile metadata once
         if isempty(rtofsProfiles(x).meta.lonLat)
-            rtofsProfiles(x).meta.glider = p(x).meta.glider;
-            rtofsProfiles(x).meta.startDatenum = p(x).meta.startDatenum;
-            rtofsProfiles(x).meta.endDatenum = p(x).meta.endDatenum;
+            rtofsProfiles(x).meta.glider = pStruct(x).meta.glider;
+            rtofsProfiles(x).meta.startDatenum = pStruct(x).meta.startDatenum;
+            rtofsProfiles(x).meta.endDatenum = pStruct(x).meta.endDatenum;
             rtofsProfiles(x).meta.lonLat = rtofsP.Profiles(5).LonLat;
         end
 
@@ -233,8 +245,8 @@ for x = 1:length(p)
     % the p(x).meta.startDatenum and p(x).meta.endDatenum and convert them
     % to epoch times
     rtofsProfiles(x).vars(end+1).ncVarName = 'time';
-    timeArray = datenum2epoch(linspace(p(x).meta.startDatenum,...
-        p(x).meta.endDatenum,...
+    timeArray = datenum2epoch(linspace(pStruct(x).meta.startDatenum,...
+        pStruct(x).meta.endDatenum,...
         numRows));
     rtofsProfiles(x).vars(end).data = timeArray;
     
@@ -256,7 +268,7 @@ for x = 1:length(p)
     
     % Create the trajectory string name
     trajectoryStr = sprintf('%s-RTOFS-%s',...
-        p(x).meta.glider,...
+        pStruct(x).meta.glider,...
         datestr(trajectoryTs, 'yyyymmddTHHMM'));
     % Add the trajectory string variable
     rtofsProfiles(x).vars(end+1).ncVarName = 'trajectory';
